@@ -1,0 +1,100 @@
+#include "EvilNode.h"
+#include <string.h>
+#include <omnetpp.h>
+#include "packet_m.h"
+#include "RandomNumberGenerator.h"
+#include "DataCache.h"
+#include "NodeBase.h"
+
+using namespace std;
+
+Define_Module(EvilNode);
+
+void EvilNode::initialize() {
+    setParameters();
+    generator = RandomNumberGenerator("seeds.csv", run, id);
+    dataCache = DataCache();
+    malicious = true;
+}
+
+void EvilNode::forwardInterestPacket(Packet* ttmsg) {
+    // The original burst interest cache poisoning attack
+    broadcastInterest(
+            broadcastInterest(broadcastInterest(broadcastInterest(0))));
+}
+
+int EvilNode::wait(int i) {
+    return ++i;
+}
+
+int EvilNode::broadcastInterest(int i) {
+    scheduleAt(simTime() + i, generateMessage(BROADCAST, "sensor"));
+    return i;
+}
+
+int EvilNode::sendDataPacket(int i) {
+    // A slight hack, the psConc value in the message is used to store the gate
+    // value, so that the node knows where to send the data to.
+    scheduleAt(simTime() + i, generateMessage(0, SENSOR, "sensor", gate));
+    return i;
+}
+
+void EvilNode::handleMessage(cMessage *msg) {
+    Packet *ttmsg = check_and_cast<Packet *>(msg);
+    if (dataCache.isInCache(ttmsg->getMsgId())) {
+        delete ttmsg;
+        return;
+    }
+    if (ttmsg->getType() == INTEREST) {
+        addToDataCache(ttmsg);
+        gate = ttmsg->getArrivalGate()->getIndex();
+        forwardInterestPacket(ttmsg);
+    }
+    if (ttmsg->getType() == BROADCAST) {
+        sendBogusInterests();
+    }
+    if (ttmsg->getType() == SENSOR) {
+        Packet* dataMsg = generateMessage(0, DATA, "sensor", 0);
+        addToDataCache(dataMsg);
+        // PsConc here acts as a placeholder for the message, rather than the
+        // actual PsConc used in intrusion detection.
+        send(dataMsg, "gate$o", ttmsg->getPsConc());
+    }
+    delete msg;
+}
+
+void EvilNode::sendBogusInterests() {
+    string type = getRandomString(20);
+    EV << "EVIL NODE TYPE: " << type;
+    Packet* msg = generateMessage(20, INTEREST, type, 0);
+    int n = gateSize("gate");
+    for (int i = 0; i < n; i++) {
+        Packet *dup = msg->dup();
+        addToDataCache(dup);
+        send(dup, "gate$o", i);
+        EV << "Forwarding message " << msg << " on gate[" << i << "]\n";
+    }
+    delete msg;
+}
+
+string EvilNode::getRandomString(const int len) {
+    static const char alphanum[] = "0123456789"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyz";
+    string s = "";
+    for (int i = 0; i < len; ++i) {
+        s += alphanum[generator.getNumber(0, (sizeof(alphanum) - 1))];
+    }
+    return s;
+}
+
+void EvilNode::addToDataCache(Packet* ttmsg) {
+    int prevHop = -1;
+    if (ttmsg->getArrivalGate()) {
+        prevHop = ttmsg->getArrivalGate()->getIndex();
+    }
+    dataCache.add(ttmsg->getMsgId(), prevHop, ttmsg->getType(),
+            ttmsg->getDataType(), simTime().raw());
+}
+
+

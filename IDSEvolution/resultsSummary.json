@@ -1,0 +1,17 @@
+{
+   "results":[
+       {
+         "name":"results_orig_w",
+         "description":"Manual",
+         "weights": [0, 0, 0, 2, 2, 2, 
+		     6, 4, 4, -1, -1, -1]
+      },
+       {
+         "name":"results_test",
+         "description":"Manual 2",
+         "weights": [6, 4, 4, -1, -1, -1, 
+		     0, 0, 0, 2, 2, 2]
+      }
+   ]
+}
+

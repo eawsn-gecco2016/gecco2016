@@ -1,0 +1,79 @@
+/*
+ * MatrixEntry.cc
+ *
+ *  Created on: Dec 29, 2014
+ *      Author: xyz
+ */
+
+#include <AIS/MatrixEntry.h>
+#include <cmath>
+#include <Cache.h>
+
+using namespace std;
+
+MatrixEntry::MatrixEntry() {
+    ps = Signal();
+    ss1 = Signal();
+    ss2 = Signal();
+    ss3 = Signal();
+    ds1 = Signal();
+    ds2 = Signal();
+}
+
+const Signal& MatrixEntry::getDs1() const {
+    return ds1;
+}
+
+const Signal& MatrixEntry::getDs2() const {
+    return ds2;
+}
+
+void MatrixEntry::setDs2(long timestamp, long expiry, long currTime) {
+    double remainingTime = expiry - currTime;
+    double expirationTime = expiry - timestamp;
+    double conc = remainingTime / expirationTime;
+    this->ds2 = Signal(conc);
+}
+
+const Signal& MatrixEntry::getPs() const {
+    return ps;
+}
+
+void MatrixEntry::setPs(int nrcvd, int nexp) {
+    double conc = 1 - (double) nrcvd / (double) nexp;
+    this->ps = Signal(conc);
+}
+
+void MatrixEntry::setPs(double conc) {
+    this->ps = Signal(conc);
+}
+
+const Signal& MatrixEntry::getSs1() const {
+    return ss1;
+}
+
+void MatrixEntry::setSs1() {
+    this->ss1 = Signal(1);
+}
+
+const Signal& MatrixEntry::getSs2() const {
+    return ss2;
+}
+
+void MatrixEntry::setSs2() {
+    this->ss2 = Signal(1);
+}
+
+const Signal& MatrixEntry::getSs3() const {
+    return ss3;
+}
+
+void MatrixEntry::setSs3Ds1(double numOfUpdates) {
+    if (numOfUpdates > Cache::SIZE) {
+        double conc = pow((numOfUpdates / (double) Cache::SIZE), (double) 2);
+        this->ds1 = Signal(conc);
+    } else {
+        double conc = 1.0 - ((numOfUpdates - 1.0) / (double) Cache::SIZE);
+        this->ss3 = Signal(conc);
+    }
+}
